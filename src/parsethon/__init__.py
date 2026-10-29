@@ -1,5 +1,13 @@
 """Parsethon: Extensible Python lexical parser, tokenizer, and Tongue translation system."""
 
+from parsethon.importer import (
+    disable,
+    enable,
+    install_codec,
+    install_importer,
+    uninstall_codec,
+    uninstall_importer,
+)
 from parsethon.lexicon import (
     LexicalToken,
     SourcePosition,
@@ -51,4 +59,10 @@ __all__ = [
     "execute",
     "execute_file",
     "runtime",
+    "install_importer",
+    "uninstall_importer",
+    "install_codec",
+    "uninstall_codec",
+    "enable",
+    "disable",
 ]
