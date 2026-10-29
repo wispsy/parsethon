@@ -10,6 +10,12 @@ from parsethon.lexicon import (
     classify_symbol,
 )
 from parsethon.tokenizer import ParsethonTokenizer
+from parsethon.tongue import (
+    Tongue,
+    TongueRegistry,
+    TongueValidationError,
+    registry,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -21,4 +27,8 @@ __all__ = [
     "classify_identifier_or_keyword",
     "classify_symbol",
     "ParsethonTokenizer",
+    "Tongue",
+    "TongueRegistry",
+    "TongueValidationError",
+    "registry",
 ]
