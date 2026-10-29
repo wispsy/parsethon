@@ -54,6 +54,11 @@ RE_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*")
 # Non-ASCII word / unicode identifier
 RE_UNICODE_WORD = re.compile(r"^\w+", re.UNICODE)
 
+# Unicode emoji or multi-codepoint symbol with variation selectors / ZWJ
+RE_EMOJI_OR_SYMBOL = re.compile(
+    r"^[^\s\w\(\)\[\]\{\}\,\:\;\.\+\-\*\/\%\&\|\^\~\<\>\=\@](?:[\ufe00-\ufe0f]|[\U0001f3fb-\U0001f3ff]|(?:\u200d[^\s\w\(\)\[\]\{\}\,\:\;\.\+\-\*\/\%\&\|\^\~\<\>\=\@](?:[\ufe00-\ufe0f]|[\U0001f3fb-\U0001f3ff])?))*"
+)
+
 
 class ParsethonTokenizer:
     """Tokenizer capable of lossless parsing of Python and custom Tongue source code."""
@@ -216,7 +221,21 @@ class ParsethonTokenizer:
                 span=span,
             )
 
-        # 8. Single fallback character (emoji, special character, single punctuation)
+        # 8. Unicode emoji or multi-codepoint symbol
+        m_emoji = RE_EMOJI_OR_SYMBOL.match(current_slice)
+        if m_emoji:
+            text = m_emoji.group(0)
+            span = self._advance(text)
+            cat, sub = classify_symbol(text)
+            return LexicalToken(
+                category=cat,
+                subelement=sub,
+                value=text,
+                canonical_value=text,
+                span=span,
+            )
+
+        # 9. Single fallback character (special character, single punctuation)
         char = current_slice[0]
         span = self._advance(char)
         cat, sub = classify_symbol(char)
