@@ -1,5 +1,6 @@
 """Parsethon: Extensible Python lexical parser, tokenizer, and Tongue translation system."""
 
+from parsethon.cli import app as cli_app, main
 from parsethon.importer import (
     disable,
     enable,
@@ -65,4 +66,6 @@ __all__ = [
     "uninstall_codec",
     "enable",
     "disable",
+    "cli_app",
+    "main",
 ]
