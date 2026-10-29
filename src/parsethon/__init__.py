@@ -16,6 +16,11 @@ from parsethon.tongue import (
     TongueValidationError,
     registry,
 )
+from parsethon.translator import (
+    ParsethonTranslator,
+    translate_from_python,
+    translate_to_python,
+)
 
 __version__ = "0.1.0"
 __all__ = [
@@ -31,4 +36,7 @@ __all__ = [
     "TongueRegistry",
     "TongueValidationError",
     "registry",
+    "ParsethonTranslator",
+    "translate_to_python",
+    "translate_from_python",
 ]
