@@ -9,6 +9,13 @@ from parsethon.lexicon import (
     classify_identifier_or_keyword,
     classify_symbol,
 )
+from parsethon.runtime import (
+    ParsethonRuntime,
+    TongueExecutionError,
+    execute,
+    execute_file,
+    runtime,
+)
 from parsethon.tokenizer import ParsethonTokenizer
 from parsethon.tongue import (
     Tongue,
@@ -39,4 +46,9 @@ __all__ = [
     "ParsethonTranslator",
     "translate_to_python",
     "translate_from_python",
+    "ParsethonRuntime",
+    "TongueExecutionError",
+    "execute",
+    "execute_file",
+    "runtime",
 ]
