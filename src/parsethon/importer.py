@@ -36,9 +36,20 @@ class TongueSourceLoader(importlib.abc.SourceLoader):
         py_source = translate_to_python(source_text, self.tongue_name)
         return compile(py_source, path, "exec", optimize=_optimize)
 
+    def exec_module(self, module: Any) -> None:
+        if self.tongue_name == "js":
+            if not hasattr(module, "console"):
+                class _Console:
+                    log = staticmethod(print)
+                    error = staticmethod(print)
+                    warn = staticmethod(print)
+                    info = staticmethod(print)
+                module.__dict__["console"] = _Console()
+        super().exec_module(module)
+
 
 class TongueMetaPathFinder(importlib.abc.MetaPathFinder):
-    """Finder that resolves `<module>.<tongue>.py` and `<module>.pyt` files."""
+    """Finder that resolves `<module>.<tongue>.py`, `<module>.<tongue>`, and `<module>.pyt` files."""
 
     def find_spec(
         self,
@@ -64,7 +75,30 @@ class TongueMetaPathFinder(importlib.abc.MetaPathFinder):
                         fullname, loader, origin=candidate
                     )
 
-            # 2. Search for `<subname>.pyt` with header detection
+            # 2. Search for direct extension `<subname>.<tongue>` (e.g. `<subname>.js`)
+            for tongue_name in known_tongues:
+                candidate = os.path.join(directory, f"{subname}.{tongue_name}")
+                if os.path.isfile(candidate):
+                    loader = TongueSourceLoader(fullname, candidate, tongue_name)
+                    return importlib.util.spec_from_loader(
+                        fullname, loader, origin=candidate
+                    )
+
+            # 3. Search for package directory `<subname>/`
+            pkg_dir = os.path.join(directory, subname)
+            if os.path.isdir(pkg_dir):
+                for tongue_name in known_tongues:
+                    for init_cand in [
+                        os.path.join(pkg_dir, f"__init__.{tongue_name}.py"),
+                        os.path.join(pkg_dir, f"__init__.{tongue_name}"),
+                    ]:
+                        if os.path.isfile(init_cand):
+                            loader = TongueSourceLoader(fullname, init_cand, tongue_name)
+                            return importlib.util.spec_from_loader(
+                                fullname, loader, origin=init_cand, is_package=True
+                            )
+
+            # 4. Search for `<subname>.pyt` with header detection
             candidate_pyt = os.path.join(directory, f"{subname}.pyt")
             if os.path.isfile(candidate_pyt):
                 with open(candidate_pyt, "r", encoding="utf-8") as f:

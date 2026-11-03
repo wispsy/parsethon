@@ -17,7 +17,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple
 
 from parsethon.lexicon import TokenCategory
-from parsethon.tokenizer import ParsethonTokenizer
+from parsethon.tokenizer import ParsethonTokenizer, scan_string_literal
 
 BLOCK_START_KEYWORDS: Set[str] = {
     # Python & JS keywords
@@ -43,10 +43,64 @@ EXPR_PREV_TOKENS: Set[str] = {
 }
 
 
+def normalize_js_comments(source: str) -> str:
+    """Convert JavaScript-style // and /* */ comments to Python # comments outside strings."""
+    result: List[str] = []
+    i = 0
+    n = len(source)
+    while i < n:
+        str_res = scan_string_literal(source, i)
+        if str_res is not None:
+            s_text = str_res[0]
+            result.append(s_text)
+            i += len(s_text)
+            continue
+
+        if source[i] == "`":
+            j = i + 1
+            while j < n and source[j] != "`":
+                if source[j] == "\\":
+                    j += 2
+                else:
+                    j += 1
+            if j < n:
+                j += 1
+            result.append(source[i:j])
+            i = j
+            continue
+
+        if source[i : i + 2] == "//":
+            j = i + 2
+            while j < n and source[j] not in ("\r", "\n"):
+                j += 1
+            result.append("#" + source[i + 2 : j])
+            i = j
+            continue
+
+        if source[i : i + 2] == "/*":
+            j = i + 2
+            while j < n and source[j : j + 2] != "*/":
+                j += 1
+            if j < n:
+                j += 2
+            comment_body = source[i + 2 : j - 2]
+            lines = comment_body.splitlines()
+            result.append("\n".join("# " + l.strip() for l in lines))
+            i = j
+            continue
+
+        result.append(source[i])
+        i += 1
+
+    return "".join(result)
+
+
 def has_js_style_syntax(source: str) -> bool:
     """Detect if the source text contains JS-style syntax elements."""
     # Check for keywords or syntax markers
     patterns = [
+        r"//[^\r\n]*",
+        r"/\*[\s\S]*?\*/",
         r"\bfunction\b",
         r"\blet\b",
         r"\bconst\b",
@@ -75,6 +129,7 @@ def has_js_style_syntax(source: str) -> bool:
 
 def desugar_js_syntax(source: str) -> str:
     """Convert JavaScript-style syntax into standard, properly indented Python syntax."""
+    source = normalize_js_comments(source)
     tokenizer = ParsethonTokenizer(source)
     tokens = tokenizer.tokenize()
 

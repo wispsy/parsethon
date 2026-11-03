@@ -27,6 +27,7 @@ class TestCLI(unittest.TestCase):
         self.assertIn("es", out)
         self.assertIn("emoji", out)
         self.assertIn("pirate", out)
+        self.assertIn("js", out)
 
     def test_cli_tokenize(self):
         with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as tmp:
@@ -85,6 +86,20 @@ class TestCLI(unittest.TestCase):
                 app.invoke(["run", str(tmp_path)])
             out = buf.getvalue()
             self.assertIn("CLI runner working!", out)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def test_cli_run_js(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as tmp:
+            tmp.write("function main() { console.log('JS CLI working!'); } main();\n")
+            tmp_path = Path(tmp.name)
+        try:
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                app.invoke(["run", str(tmp_path)])
+            out = buf.getvalue()
+            self.assertIn("JS CLI working!", out)
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()

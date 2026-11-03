@@ -75,6 +75,52 @@ definir es_positivo(n):
         if "emojimod" in sys.modules:
             del sys.modules["emojimod"]
 
+    def test_import_js_module(self):
+        mod_file = self.dir_path / "mathops.js"
+        mod_file.write_text(
+            """
+function square(n) {
+    return n * n;
+}
+
+function isEven(n) {
+    if (n % 2 === 0) {
+        return true;
+    } else {
+        return false;
+    }
+}
+""",
+            encoding="utf-8",
+        )
+
+        mod = importlib.import_module("mathops")
+        self.assertIsNotNone(mod)
+        self.assertEqual(mod.square(8), 64)
+        self.assertTrue(mod.isEven(4))
+        self.assertFalse(mod.isEven(5))
+
+        if "mathops" in sys.modules:
+            del sys.modules["mathops"]
+
+    def test_import_js_py_module(self):
+        mod_file = self.dir_path / "helper.js.py"
+        mod_file.write_text(
+            """
+function greet(name) {
+    return "Hello, " + name;
+}
+""",
+            encoding="utf-8",
+        )
+
+        mod = importlib.import_module("helper")
+        self.assertIsNotNone(mod)
+        self.assertEqual(mod.greet("Parsethon"), "Hello, Parsethon")
+
+        if "helper" in sys.modules:
+            del sys.modules["helper"]
+
     def test_codec_lookup(self):
         install_codec()
         info = codecs.lookup("parsethon-es")

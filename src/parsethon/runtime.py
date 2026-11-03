@@ -14,7 +14,7 @@ from parsethon.tongue import Tongue, registry
 from parsethon.translator import ParsethonTranslator, translate_to_python
 
 RE_TONGUE_HEADER = re.compile(
-    r"^[ \t]*#[ \t]*(?:coding[:=]\s*parsethon-([a-zA-Z0-9_-]+)|tongue[:=]\s*([a-zA-Z0-9_-]+))",
+    r"^[ \t]*(?:#|//)[ \t]*(?:coding[:=]\s*parsethon-([a-zA-Z0-9_-]+)|tongue[:=]\s*([a-zA-Z0-9_-]+))",
     re.MULTILINE,
 )
 
@@ -58,7 +58,7 @@ def detect_tongue_from_source(source: str) -> Optional[str]:
 
 
 def detect_tongue_from_filename(filename: Union[str, Path]) -> Optional[str]:
-    """Detect Tongue from filename conventions (e.g. `script.es.py`, `script.emoji.py`)."""
+    """Detect Tongue from filename conventions (e.g. `script.es.py`, `script.emoji.py`, `script.js`)."""
     path = Path(filename)
     parts = path.name.split(".")
     # Example: foo.es.py -> parts = ['foo', 'es', 'py']
@@ -66,6 +66,9 @@ def detect_tongue_from_filename(filename: Union[str, Path]) -> Optional[str]:
         candidate = parts[-2]
         if candidate in registry.list_tongues():
             return candidate
+    # Direct extension check (e.g. `script.js`)
+    if len(parts) >= 2 and parts[-1] in registry.list_tongues():
+        return parts[-1]
     return None
 
 
