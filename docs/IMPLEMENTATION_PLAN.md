@@ -1,6 +1,6 @@
 # Parsethon Implementation Plan
 
-**Parsethon** is an extensible Python lexical parser, tokenization engine, and language translation system. It allows developers to define a **"Tongue"**—a customized lexicon of keywords, operators, delimiters, and syntax tokens—write programs using that Tongue, and translate them losslessly back to standard Python syntax for direct execution by the CPython interpreter.
+**Parsethon** is an extensible Python lexical parser, tokenization engine, and language translation system. Rather than creating a new programming language implementation, parsethon is a mechanism for expressing Python in multiple syntactic vocabularies while retaining Python's ecosystem and runtime. It allows developers to define a **"Tongue"**—a customized lexicon of keywords, operators, delimiters, and syntax tokens—write programs using that Tongue, and translate them via semantically correct bidirectional translation back to standard Python syntax for direct execution by the CPython interpreter.
 
 ---
 

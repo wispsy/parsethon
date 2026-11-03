@@ -1,12 +1,12 @@
 # Parsethon 🐍🗣️
 
-**Parsethon** is an extensible Python lexical parser, tokenization engine, and language translation system.
+**Parsethon** is an extensible Python lexical parser, tokenization engine, and language translation system. Rather than creating a new programming language implementation, parsethon is a mechanism for expressing Python in multiple syntactic vocabularies while retaining Python's ecosystem and runtime.
 
 It enables developers to:
 1. **Tokenize** Python source code with fine-grained lexical classification and subelement taxonomy (keywords, operators, delimiters, literals, trivia, and spans).
 2. **Define a "Tongue"**: A declarative mapping of replacement keywords, operators, literals, and built-ins.
-3. **Losslessly Translate**: Convert source code written in a Tongue back to standard canonical Python syntax (and vice-versa).
-4. **Execute under CPython**: Run Tongue source files directly with standard CPython runtime semantics and mapped tracebacks.
+3. **Semantically Correct Bidirectional Translation**: Convert source code written in a Tongue back to standard canonical Python syntax (and vice-versa) with demonstrably safe, reversible transformations and AST equivalence.
+4. **Execute under CPython**: Run Tongue source files directly with standard CPython runtime semantics and mapped tracebacks via explicit bidirectional source maps.
 5. **Import Seamlessly**: Import `.tongue.py` modules directly via Python's `sys.meta_path` loader or codec hook (`# coding: parsethon-<tongue>`).
 
 Built with **zero third-party dependencies** beyond the in-house CLI interface library [`expose-interface`](https://pypi.org/project/expose-interface/).
@@ -160,10 +160,10 @@ my_spanish_module.saludar("Mundo")
 
 ## Architecture & Documentation
 
-- [Implementation Plan](../../Docs/parsethon/IMPLEMENTATION_PLAN.md)
-- [Tongue Authoring Guide](../../Docs/parsethon/TONGUE_AUTHORING_GUIDE.md)
-- [Architecture Deep Dive](../../Docs/parsethon/ARCHITECTURE.md)
-- [CLI Reference](../../Docs/parsethon/CLI_REFERENCE.md)
+- [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [Tongue Authoring Guide](docs/TONGUE_AUTHORING_GUIDE.md)
+- [Architecture Deep Dive](docs/ARCHITECTURE.md)
+- [CLI Reference](docs/CLI_REFERENCE.md)
 
 ---
 

@@ -1,6 +1,6 @@
 [project]
 name = "parsethon"
-version = "0.1.0"
+version = "0.2.0"
 description = "Extensible Python Lexical Parser and Tongue Translation System"
 readme = "README.md"
 authors = [
