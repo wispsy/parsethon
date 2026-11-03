@@ -355,6 +355,7 @@ class TongueRegistry:
                     "or": "||",
                     "not": "!",
                     "is": "===",
+                    "is not": "!==",
                 },
                 builtins={
                     "print": "console.log",

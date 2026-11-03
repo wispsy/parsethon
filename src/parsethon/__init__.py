@@ -18,6 +18,11 @@ from parsethon.lexicon import (
     classify_identifier_or_keyword,
     classify_symbol,
 )
+from parsethon.js_syntax import (
+    desugar_js_syntax,
+    has_js_style_syntax,
+    to_js_syntax,
+)
 from parsethon.runtime import (
     ParsethonRuntime,
     TongueExecutionError,
@@ -48,6 +53,9 @@ __all__ = [
     "TokenSubelement",
     "classify_identifier_or_keyword",
     "classify_symbol",
+    "desugar_js_syntax",
+    "has_js_style_syntax",
+    "to_js_syntax",
     "ParsethonTokenizer",
     "SourceMap",
     "SourceMapEntry",

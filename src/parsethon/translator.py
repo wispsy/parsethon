@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Callable, List, Optional, Tuple, Union
 
+from parsethon.js_syntax import desugar_js_syntax, has_js_style_syntax, to_js_syntax
 from parsethon.lexicon import (
     PYTHON_KEYWORDS,
     LexicalToken,
@@ -29,19 +30,25 @@ class ParsethonTranslator:
 
     def to_python(self, tongue_source: str) -> str:
         """Translate source code written in Tongue syntax to standard Python syntax."""
+        source = tongue_source
+        if getattr(self.tongue, "braces", False) or has_js_style_syntax(source):
+            source = desugar_js_syntax(source)
         return self._translate(
-            source=tongue_source,
+            source=source,
             mapping=self.tongue.reverse_map,
             is_to_python=True,
         )
 
     def from_python(self, python_source: str) -> str:
         """Translate standard Python source code into Tongue syntax."""
-        return self._translate(
+        translated = self._translate(
             source=python_source,
             mapping=self.tongue.forward_map,
             is_to_python=False,
         )
+        if getattr(self.tongue, "braces", False):
+            translated = to_js_syntax(translated)
+        return translated
 
     def translate_with_sourcemap(
         self,
@@ -49,8 +56,10 @@ class ParsethonTranslator:
         is_to_python: bool = True,
     ) -> Tuple[str, SourceMap]:
         """Translate source and return both translated code and the explicit SourceMap."""
-        mapping = self.tongue.reverse_map if is_to_python else self.tongue.forward_map
-        result = self._translate(source=source, mapping=mapping, is_to_python=is_to_python)
+        if is_to_python:
+            result = self.to_python(source)
+        else:
+            result = self.from_python(source)
         return result, self.last_source_map or SourceMap()
 
     def _translate(

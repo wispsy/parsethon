@@ -133,6 +133,17 @@ class ParsethonRuntime:
             if hasattr(builtins, builtin_orig):
                 exec_globals[builtin_alias] = getattr(builtins, builtin_orig)
 
+        # Inject console helper for JS execution
+        class _Console:
+            def log(self, *args, **kwargs):
+                print(*args, **kwargs)
+            def error(self, *args, **kwargs):
+                print(*args, **kwargs)
+            def warn(self, *args, **kwargs):
+                print(*args, **kwargs)
+
+        exec_globals["console"] = _Console()
+
         try:
             code_obj = compile(py_source, filename, "exec")
         except SyntaxError as se:
