@@ -13,6 +13,7 @@ from parsethon.importer import (
     install_codec,
     install_importer,
     search_tongue_codec,
+    uninstall_codec,
     uninstall_importer,
 )
 
@@ -83,6 +84,15 @@ definir es_positivo(n):
         decoded, length = info.decode(raw_es)
         self.assertIn("def foo():", decoded)
         self.assertIn("return 123", decoded)
+
+    def test_codec_uninstall(self):
+        install_codec()
+        info = codecs.lookup("parsethon-es")
+        self.assertIsNotNone(info)
+
+        uninstall_codec()
+        with self.assertRaises(LookupError):
+            codecs.lookup("parsethon-es")
 
 
 if __name__ == "__main__":

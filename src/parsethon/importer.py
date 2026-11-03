@@ -109,6 +109,9 @@ class TongueStreamReader(codecs.StreamReader):
 
 def search_tongue_codec(encoding: str) -> Optional[codecs.CodecInfo]:
     """Finds codecs matching pattern `parsethon-<tongue>` or `parsethon_<tongue>`."""
+    if not _codec_installed:
+        return None
+
     normalized = encoding.lower().replace("-", "_")
     if not normalized.startswith("parsethon_"):
         return None
@@ -158,8 +161,12 @@ def install_codec() -> None:
 def uninstall_codec() -> None:
     """Unregisters the parsethon codec search function if supported."""
     global _codec_installed
-    # Python codecs registry has no unregister, but we can set flag so search_tongue_codec returns None
     _codec_installed = False
+    if hasattr(codecs, "unregister"):
+        try:
+            codecs.unregister(search_tongue_codec)
+        except Exception:
+            pass
 
 
 def enable() -> None:
