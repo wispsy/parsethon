@@ -42,6 +42,7 @@ Output:
 Available Tongues:
   * emoji      (v1.0.0): Iconic Emoji Python Tongue [def->🔨, return->📦, if->❓...]
   * es         (v1.0.0): Spanish language Python Tongue [def->definir, return->retornar, if->si...]
+  * js         (v1.0.0): JavaScript-style Python Tongue with braces, semicolons, and JS vocabulary
   * pirate     (v1.0.0): Swashbuckling Pirate Python Tongue [def->chart, return->booty, if->perchance...]
 ```
 
@@ -154,6 +155,37 @@ parsethon.enable()
 # Directly import foo.es.py or foo.emoji.py!
 import my_spanish_module
 my_spanish_module.saludar("Mundo")
+```
+
+### JavaScript-Style Syntax (Braces & Semicolons)
+Parsethon supports full JavaScript-style block syntax, semicolons, and complete whitespace indifference:
+
+```javascript
+// calculator.js
+function factorial(n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
+    }
+}
+
+let result = factorial(5);
+console.log("Factorial:", result);
+```
+
+You can execute `.js` scripts directly:
+```bash
+parsethon run calculator.js
+```
+
+Or import them transparently as Python modules:
+```python
+import parsethon
+parsethon.enable()
+
+import calculator
+print(calculator.factorial(5))  # 120
 ```
 
 ---
