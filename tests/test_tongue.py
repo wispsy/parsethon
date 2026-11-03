@@ -78,6 +78,35 @@ class TestTongue(unittest.TestCase):
         self.assertEqual(pirate.reverse_map["chart"], "def")
         self.assertEqual(pirate.reverse_map["booty"], "return")
 
+        self.assertIn("js", names)
+        js = registry.get("js")
+        self.assertTrue(js.braces)
+        self.assertEqual(js.syntax_style, "braces")
+        self.assertEqual(js.reverse_map["function"], "def")
+        self.assertEqual(js.reverse_map["true"], "True")
+        self.assertEqual(js.reverse_map["false"], "False")
+        self.assertEqual(js.reverse_map["null"], "None")
+        self.assertEqual(js.reverse_map["&&"], "and")
+        self.assertEqual(js.reverse_map["||"], "or")
+        self.assertEqual(js.reverse_map["!"], "not")
+        self.assertEqual(js.reverse_map["==="], "is")
+
+    def test_tongue_braces_configuration(self):
+        t1 = Tongue(name="braced", braces=True)
+        self.assertTrue(t1.braces)
+        self.assertEqual(t1.syntax_style, "braces")
+
+        t2 = Tongue(name="braced_style", syntax_style="braces")
+        self.assertTrue(t2.braces)
+        self.assertEqual(t2.syntax_style, "braces")
+
+        d = t1.to_dict()
+        self.assertTrue(d["braces"])
+        self.assertEqual(d["syntax_style"], "braces")
+
+        restored = Tongue.from_dict(d)
+        self.assertTrue(restored.braces)
+
     def test_custom_registry(self):
         reg = TongueRegistry()
         custom = Tongue(name="custom", keywords={"for": "each"})

@@ -24,12 +24,18 @@ class Tongue:
     operators: Dict[str, str] = field(default_factory=dict)
     delimiters: Dict[str, str] = field(default_factory=dict)
     builtins: Dict[str, str] = field(default_factory=dict)
+    syntax_style: str = "indent"
+    braces: bool = False
 
     # Cached translation maps
     _forward_map: Dict[str, str] = field(init=False, default_factory=dict, repr=False)
     _reverse_map: Dict[str, str] = field(init=False, default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
+        if self.syntax_style in ("braces", "js"):
+            self.braces = True
+        elif self.braces:
+            self.syntax_style = "braces"
         self.validate()
         self._rebuild_maps()
 
@@ -100,6 +106,8 @@ class Tongue:
             "operators": self.operators,
             "delimiters": self.delimiters,
             "builtins": self.builtins,
+            "syntax_style": self.syntax_style,
+            "braces": self.braces,
         }
 
     @classmethod
@@ -114,6 +122,8 @@ class Tongue:
             operators=data.get("operators", {}),
             delimiters=data.get("delimiters", {}),
             builtins=data.get("builtins", {}),
+            syntax_style=data.get("syntax_style", "indent"),
+            braces=data.get("braces", False),
         )
 
     def to_json(self, indent: int = 2) -> str:
@@ -297,6 +307,59 @@ class TongueRegistry:
                 builtins={
                     "print": "ahoy",
                     "len": "tally",
+                },
+            )
+        )
+
+        # 4. JavaScript Tongue
+        self.register(
+            Tongue(
+                name="js",
+                version="1.0.0",
+                description="JavaScript-style Python Tongue with braces, semicolons, and JS vocabulary",
+                syntax_style="braces",
+                braces=True,
+                keywords={
+                    "def": "function",
+                    "return": "return",
+                    "if": "if",
+                    "elif": "else if",
+                    "else": "else",
+                    "while": "while",
+                    "for": "for",
+                    "break": "break",
+                    "continue": "continue",
+                    "pass": "pass",
+                    "class": "class",
+                    "import": "import",
+                    "from": "from",
+                    "as": "as",
+                    "try": "try",
+                    "except": "catch",
+                    "finally": "finally",
+                    "raise": "throw",
+                    "with": "with",
+                    "async": "async",
+                    "await": "await",
+                    "in": "in",
+                    "match": "switch",
+                    "case": "case",
+                },
+                constants={
+                    "True": "true",
+                    "False": "false",
+                    "None": "null",
+                },
+                operators={
+                    "and": "&&",
+                    "or": "||",
+                    "not": "!",
+                    "is": "===",
+                },
+                builtins={
+                    "print": "console.log",
+                    "len": "length",
+                    "range": "range",
                 },
             )
         )
