@@ -66,11 +66,81 @@ class ParsethonTranslator:
             (t.span, t.value) for t in tokens
         ]
 
-        prev_significant_token: Optional[LexicalToken] = None
-
-        for token in tokens:
-            if token.category in (TokenCategory.WHITESPACE, TokenCategory.NEWLINE):
+        # Collect non-trivia token indices and paren depths for context analysis
+        sig_indices: List[int] = []
+        paren_depths: Dict[int, int] = {}
+        depth = 0
+        for idx, tok in enumerate(tokens):
+            if tok.category in (TokenCategory.WHITESPACE, TokenCategory.NEWLINE, TokenCategory.COMMENT):
                 continue
+            sig_indices.append(idx)
+            if tok.value in ("(", "[", "{"):
+                depth += 1
+            elif tok.value in (")", "]", "}"):
+                depth = max(0, depth - 1)
+            paren_depths[idx] = depth
+
+        def_keywords = {"def", "class"}
+        import_stmt_keywords = {"import", "from", "as"}
+        if is_to_python:
+            for k in ("def", "class"):
+                if k in self.tongue.keywords:
+                    def_keywords.add(self.tongue.keywords[k])
+            for k in ("import", "from", "as"):
+                if k in self.tongue.keywords:
+                    import_stmt_keywords.add(self.tongue.keywords[k])
+        else:
+            for k in ("def", "class", "import", "from", "as"):
+                if k in self.tongue.keywords:
+                    def_keywords.add(k)
+                    import_stmt_keywords.add(k)
+
+        # Soft keywords to watch
+        if is_to_python:
+            match_word = self.tongue.keywords.get("match")
+            case_word = self.tongue.keywords.get("case")
+        else:
+            match_word = "match"
+            case_word = "case"
+
+        # Check which lines contain an import statement
+        import_lines: set[int] = set()
+        for idx in sig_indices:
+            tok = tokens[idx]
+            if tok.value in (
+                "import", "from",
+                self.tongue.keywords.get("import", ""),
+                self.tongue.keywords.get("from", ""),
+            ):
+                import_lines.add(tok.span.start.line)
+
+        # Helper to test if a token is in statement start position
+        def is_statement_start(sig_pos: int) -> bool:
+            if sig_pos == 0:
+                return True
+            prev_t = tokens[sig_indices[sig_pos - 1]]
+            curr_t = tokens[sig_indices[sig_pos]]
+            if prev_t.span.end.line < curr_t.span.start.line:
+                return True
+            if prev_t.value in (":", ";"):
+                return True
+            return False
+
+        # Helper to check if statement line has a colon
+        def statement_has_colon(sig_pos: int) -> bool:
+            curr_line = tokens[sig_indices[sig_pos]].span.start.line
+            for p in range(sig_pos + 1, len(sig_indices)):
+                t = tokens[sig_indices[p]]
+                if t.span.start.line > curr_line and paren_depths.get(sig_indices[p], 0) == 0:
+                    break
+                if t.value == ":" and paren_depths.get(sig_indices[p], 0) == 0:
+                    return True
+            return False
+
+        for sig_pos, idx in enumerate(sig_indices):
+            token = tokens[idx]
+            prev_tok = tokens[sig_indices[sig_pos - 1]] if sig_pos > 0 else None
+            next_tok = tokens[sig_indices[sig_pos + 1]] if sig_pos + 1 < len(sig_indices) else None
 
             # Process f-strings
             if token.category == TokenCategory.FSTRING:
@@ -79,38 +149,70 @@ class ParsethonTranslator:
                     mapping=mapping,
                     is_to_python=is_to_python,
                 )
-                prev_significant_token = token
                 continue
 
             # Skip comments and regular string literals
             if token.category in (TokenCategory.STRING, TokenCategory.COMMENT):
-                prev_significant_token = token
                 continue
 
-            # Guard attribute access: don't translate if preceded by '.' and target is Python keyword
-            is_dot_access = (
-                prev_significant_token is not None
-                and prev_significant_token.value == "."
-            )
+            # 1. Attribute access guard (e.g. obj.attr, obj.case, sys.stdout.write)
+            is_dot_access = prev_tok is not None and prev_tok.value == "."
+            if is_dot_access:
+                continue
 
+            # 2. Definition name guard (def func, class MyClass)
+            is_def_name = prev_tok is not None and prev_tok.value in def_keywords
+            if is_def_name:
+                continue
+
+            # 3. Import statements guard (only translate keywords import/from/as, never module/symbol names)
+            if token.span.start.line in import_lines:
+                if token.value not in import_stmt_keywords:
+                    continue
+
+            # 4. Keyword argument guard in function call (e.g. func(match=1, print=True))
+            cur_depth = paren_depths.get(idx, 0)
+            is_kwarg = cur_depth > 0 and next_tok is not None and next_tok.value == "="
+            if is_kwarg:
+                continue
+
+            # 5. Soft keywords (match and case) contextual resolution
+            if match_word and token.value == match_word:
+                in_match_context = (
+                    is_statement_start(sig_pos)
+                    and next_tok is not None
+                    and next_tok.value not in ("=", "+=", "-=", "*=", "/=", "==", "!=", "<", ">", "<=", ">=", ".", ")", "]", "}")
+                    and statement_has_colon(sig_pos)
+                )
+                if in_match_context and token.value in mapping:
+                    token.value = mapping[token.value]
+                continue
+
+            if case_word and token.value == case_word:
+                in_case_context = (
+                    is_statement_start(sig_pos)
+                    and next_tok is not None
+                    and next_tok.value not in ("=", "+=", "-=", "*=", "/=", "==", "!=", "<", ">", "<=", ">=", ".", ")", "]", "}")
+                    and statement_has_colon(sig_pos)
+                )
+                if in_case_context and token.value in mapping:
+                    token.value = mapping[token.value]
+                continue
+
+            # 6. Standard translation
             val = token.value
             if val in mapping:
                 replacement = mapping[val]
 
-                # If translating to python and preceded by '.', avoid generating invalid keyword attribute
-                if is_to_python and is_dot_access and replacement in PYTHON_KEYWORDS:
-                    prev_significant_token = token
-                    continue
-
                 # If translating from python, only translate identifiers if they are known builtins or constants
                 if not is_to_python and token.category == TokenCategory.IDENTIFIER:
                     if val not in self.tongue.builtins and val not in self.tongue.constants:
-                        prev_significant_token = token
+                        continue
+                    # Don't translate assigned variable matching builtin name: print = 1
+                    if val in self.tongue.builtins and next_tok is not None and next_tok.value == "=":
                         continue
 
                 token.value = replacement
-
-            prev_significant_token = token
 
         # Build SourceMap tracking remapped token lengths and line/column positions
         source_map = SourceMap()
