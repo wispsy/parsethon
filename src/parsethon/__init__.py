@@ -25,6 +25,7 @@ from parsethon.runtime import (
     execute_file,
     runtime,
 )
+from parsethon.sourcemap import SourceMap, SourceMapEntry
 from parsethon.tokenizer import ParsethonTokenizer
 from parsethon.tongue import (
     Tongue,
@@ -48,6 +49,8 @@ __all__ = [
     "classify_identifier_or_keyword",
     "classify_symbol",
     "ParsethonTokenizer",
+    "SourceMap",
+    "SourceMapEntry",
     "Tongue",
     "TongueRegistry",
     "TongueValidationError",

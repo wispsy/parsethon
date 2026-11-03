@@ -137,11 +137,22 @@ class ParsethonRuntime:
             code_obj = compile(py_source, filename, "exec")
         except SyntaxError as se:
             lineno = se.lineno
-            tongue_line = source_lines[lineno - 1] if lineno and 0 < lineno <= len(source_lines) else None
+            col_offset = se.offset
+            orig_pos = (
+                translator.last_source_map.lookup_original(lineno, col_offset)
+                if translator.last_source_map and lineno is not None
+                else None
+            )
+            mapped_lineno = orig_pos.line if orig_pos else lineno
+            tongue_line = (
+                source_lines[mapped_lineno - 1]
+                if mapped_lineno and 0 < mapped_lineno <= len(source_lines)
+                else None
+            )
             raise TongueExecutionError(
                 message=f"SyntaxError: {se.msg}",
                 filename=filename,
-                lineno=lineno,
+                lineno=mapped_lineno,
                 tongue_line=tongue_line,
                 original_exc=se,
                 translated_code=py_source,
@@ -159,6 +170,10 @@ class ParsethonRuntime:
                     if f.filename == filename:
                         lineno = f.lineno
                         break
+            if lineno and translator.last_source_map:
+                orig_pos = translator.last_source_map.lookup_original(lineno)
+                if orig_pos:
+                    lineno = orig_pos.line
             tongue_line = source_lines[lineno - 1] if lineno and 0 < lineno <= len(source_lines) else None
             raise TongueExecutionError(
                 message=f"{type(e).__name__}: {e}",

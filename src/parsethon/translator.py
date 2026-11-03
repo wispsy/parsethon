@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import re
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from parsethon.lexicon import (
     PYTHON_KEYWORDS,
     LexicalToken,
+    SourcePosition,
+    SourceSpan,
     TokenCategory,
 )
+from parsethon.sourcemap import SourceMap
 from parsethon.tokenizer import ParsethonTokenizer
 from parsethon.tongue import Tongue, registry
 
@@ -22,6 +25,7 @@ class ParsethonTranslator:
             self.tongue = registry.get(tongue)
         else:
             self.tongue = tongue
+        self.last_source_map: Optional[SourceMap] = None
 
     def to_python(self, tongue_source: str) -> str:
         """Translate source code written in Tongue syntax to standard Python syntax."""
@@ -39,6 +43,16 @@ class ParsethonTranslator:
             is_to_python=False,
         )
 
+    def translate_with_sourcemap(
+        self,
+        source: str,
+        is_to_python: bool = True,
+    ) -> Tuple[str, SourceMap]:
+        """Translate source and return both translated code and the explicit SourceMap."""
+        mapping = self.tongue.reverse_map if is_to_python else self.tongue.forward_map
+        result = self._translate(source=source, mapping=mapping, is_to_python=is_to_python)
+        return result, self.last_source_map or SourceMap()
+
     def _translate(
         self,
         source: str,
@@ -47,6 +61,10 @@ class ParsethonTranslator:
     ) -> str:
         tokenizer = ParsethonTokenizer(source)
         tokens = tokenizer.tokenize()
+
+        orig_records: List[Tuple[SourceSpan, str]] = [
+            (t.span, t.value) for t in tokens
+        ]
 
         prev_significant_token: Optional[LexicalToken] = None
 
@@ -93,6 +111,39 @@ class ParsethonTranslator:
                 token.value = replacement
 
             prev_significant_token = token
+
+        # Build SourceMap tracking remapped token lengths and line/column positions
+        source_map = SourceMap()
+        curr_line = 1
+        curr_col = 0
+
+        for (orig_span, orig_text), tok in zip(orig_records, tokens):
+            t_text = tok.value
+            start_pos = SourcePosition(curr_line, curr_col)
+            lines = t_text.splitlines(keepends=True)
+            if not lines:
+                end_pos = start_pos
+            elif len(lines) == 1 and not (lines[0].endswith("\n") or lines[0].endswith("\r")):
+                curr_col += len(t_text)
+                end_pos = SourcePosition(curr_line, curr_col)
+            else:
+                for l in lines:
+                    if l.endswith("\n") or l.endswith("\r"):
+                        curr_line += 1
+                        curr_col = 0
+                    else:
+                        curr_col += len(l)
+                end_pos = SourcePosition(curr_line, curr_col)
+
+            translated_span = SourceSpan(start_pos, end_pos)
+            source_map.add_entry(
+                original_span=orig_span,
+                translated_span=translated_span,
+                original_text=orig_text,
+                translated_text=t_text,
+            )
+
+        self.last_source_map = source_map
 
         return ParsethonTokenizer.reconstruct(tokens)
 
