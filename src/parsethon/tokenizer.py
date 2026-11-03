@@ -20,12 +20,24 @@ from parsethon.lexicon import (
     classify_symbol,
 )
 
+def get_multi_char_symbols() -> List[str]:
+    """Return all standard Python and registered Tongue multi-char symbols, sorted descending by length."""
+    syms = set(PYTHON_SYMBOL_OPERATORS.keys()) | set(PYTHON_DELIMITERS.keys())
+    try:
+        from parsethon.tongue import registry
+        for t_name in registry.list_tongues():
+            tongue = registry.get(t_name)
+            for d in (tongue.operators, tongue.delimiters):
+                for val in d.values():
+                    if val and not val.isidentifier():
+                        syms.add(val)
+    except Exception:
+        pass
+    return sorted(syms, key=lambda s: len(s), reverse=True)
+
+
 # Multi-character symbols ordered by length descending to match greedily
-MULTI_CHAR_SYMBOLS = sorted(
-    list(PYTHON_SYMBOL_OPERATORS.keys()) + list(PYTHON_DELIMITERS.keys()),
-    key=lambda s: len(s),
-    reverse=True,
-)
+MULTI_CHAR_SYMBOLS = get_multi_char_symbols()
 
 # Regular expressions for lexical elements
 RE_WHITESPACE = re.compile(r"[ \t\f]+")
@@ -156,6 +168,7 @@ class ParsethonTokenizer:
         self.index = 0
         self.line = 1
         self.column = 0
+        self.symbols = get_multi_char_symbols()
 
     def _advance(self, text: str) -> SourceSpan:
         """Advance cursor by text length and line breaks, returning source span."""
@@ -268,7 +281,7 @@ class ParsethonTokenizer:
                 )
 
         # 6. Multi-character and known symbol operators/delimiters
-        for sym in MULTI_CHAR_SYMBOLS:
+        for sym in self.symbols:
             if current_slice.startswith(sym):
                 span = self._advance(sym)
                 cat, sub = classify_symbol(sym)
