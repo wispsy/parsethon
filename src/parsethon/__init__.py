@@ -26,7 +26,7 @@ from parsethon.runtime import (
     runtime,
 )
 from parsethon.sourcemap import SourceMap, SourceMapEntry
-from parsethon.tokenizer import ParsethonTokenizer
+from parsethon.tokenizer import ParsethonTokenizer, scan_string_literal
 from parsethon.tongue import (
     Tongue,
     TongueRegistry,

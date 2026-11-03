@@ -13,7 +13,7 @@ from parsethon.lexicon import (
     TokenCategory,
 )
 from parsethon.sourcemap import SourceMap
-from parsethon.tokenizer import ParsethonTokenizer
+from parsethon.tokenizer import ParsethonTokenizer, scan_string_literal
 from parsethon.tongue import Tongue, registry
 
 
@@ -191,22 +191,23 @@ class ParsethonTranslator:
                 # Find matching unescaped }
                 brace_depth = 1
                 j = i + 1
-                in_quote: Optional[str] = None
                 while j < n and brace_depth > 0:
+                    str_info = scan_string_literal(inner, j)
+                    if str_info is not None:
+                        j += len(str_info[0])
+                        continue
                     ch = inner[j]
-                    if in_quote:
-                        if ch == "\\" and j + 1 < n:
-                            j += 2
-                            continue
-                        if ch == in_quote:
-                            in_quote = None
-                    else:
-                        if ch in ('"', "'"):
-                            in_quote = ch
-                        elif ch == "{":
-                            brace_depth += 1
-                        elif ch == "}":
-                            brace_depth -= 1
+                    if ch == "{":
+                        brace_depth += 1
+                    elif ch == "}":
+                        brace_depth -= 1
+                    elif ch == "#":
+                        while j < n and inner[j] not in ("\r", "\n"):
+                            j += 1
+                        continue
+                    elif ch == "\\":
+                        j += 2
+                        continue
                     j += 1
 
                 if brace_depth == 0:
@@ -233,37 +234,61 @@ class ParsethonTranslator:
         mapping: dict[str, str],
         is_to_python: bool,
     ) -> str:
-        """Translate an expression inside an f-string, preserving conversions and formats."""
-        # Split on conversion or format spec if outside quotes and parentheses
+        """Translate an expression inside an f-string, preserving conversions and nested format specs."""
         paren_depth = 0
-        in_quote: Optional[str] = None
+        bracket_depth = 0
+        brace_depth = 0
         split_idx = -1
         k = 0
-        while k < len(expr_raw):
+        n = len(expr_raw)
+
+        while k < n:
+            str_info = scan_string_literal(expr_raw, k)
+            if str_info is not None:
+                k += len(str_info[0])
+                continue
+
             c = expr_raw[k]
-            if in_quote:
-                if c == "\\" and k + 1 < len(expr_raw):
-                    k += 2
-                    continue
-                if c == in_quote:
-                    in_quote = None
-            else:
-                if c in ('"', "'"):
-                    in_quote = c
-                elif c in "([{":
-                    paren_depth += 1
-                elif c in ")]}":
-                    paren_depth -= 1
-                elif paren_depth == 0 and c in ("!", ":"):
-                    split_idx = k
-                    break
+            if c == "(":
+                paren_depth += 1
+            elif c == ")":
+                paren_depth -= 1
+            elif c == "[":
+                bracket_depth += 1
+            elif c == "]":
+                bracket_depth -= 1
+            elif c == "{":
+                brace_depth += 1
+            elif c == "}":
+                brace_depth -= 1
+            elif paren_depth == 0 and bracket_depth == 0 and brace_depth == 0 and c in ("!", ":"):
+                split_idx = k
+                break
             k += 1
 
         if split_idx != -1:
             code_part = expr_raw[:split_idx]
             spec_part = expr_raw[split_idx:]
             translated_code = self._translate(code_part, mapping, is_to_python)
-            return f"{translated_code}{spec_part}"
+
+            # If spec_part has format_spec with nested expressions (e.g. `:{width}` or `!r:{width}`)
+            if ":" in spec_part:
+                colon_idx = spec_part.index(":")
+                conv_prefix = spec_part[: colon_idx + 1]
+                fmt_body = spec_part[colon_idx + 1 :]
+                if "{" in fmt_body:
+                    fmt_translated = self._translate_fstring(
+                        f'f"{{{fmt_body}}}"',
+                        mapping=mapping,
+                        is_to_python=is_to_python,
+                    )
+                    if fmt_translated.startswith(('f"{', "f'{")):
+                        fmt_body = fmt_translated[3:-2]
+                translated_spec = f"{conv_prefix}{fmt_body}"
+            else:
+                translated_spec = spec_part
+
+            return f"{translated_code}{translated_spec}"
         else:
             return self._translate(expr_raw, mapping, is_to_python)
 

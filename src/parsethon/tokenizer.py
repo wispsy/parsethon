@@ -33,13 +33,100 @@ RE_NEWLINE = re.compile(r"\r\n|\r|\n")
 RE_COMMENT = re.compile(r"#[^\r\n]*")
 
 # String literal prefixes
-STRING_PREFIXES = r"(?:[rRuUbBfF]|[rR][fF]|[fF][rR]|[rR][bB]|[bB][rR])?"
+RE_STRING_PREFIX = re.compile(r"^(r[bf]|b[r]|f[r]|r|u|b|f)?", re.IGNORECASE)
 
-# Triple and single quoted string patterns
-RE_TRIPLE_DOUBLE_STRING = re.compile(rf'^{STRING_PREFIXES}"""(?:\\.|[^\\])*?"""', re.DOTALL)
-RE_TRIPLE_SINGLE_STRING = re.compile(rf"^{STRING_PREFIXES}'''(?:\\.|[^\\])*?'''", re.DOTALL)
-RE_SINGLE_DOUBLE_STRING = re.compile(rf'^{STRING_PREFIXES}"(?:\\.|[^"\r\n\\])*"')
-RE_SINGLE_SINGLE_STRING = re.compile(rf"^{STRING_PREFIXES}'(?:\\.|[^'\r\n\\])*'")
+
+def scan_string_literal(source: str, start_index: int = 0) -> Optional[Tuple[str, bool, bool]]:
+    """Scan a string literal statefully, handling escape sequences and Python 3.12+ nested f-strings.
+
+    Returns (string_token, is_fstring, is_triple) or None if no string literal starts at start_index.
+    """
+    m = RE_STRING_PREFIX.match(source[start_index:])
+    if not m:
+        return None
+    prefix = m.group(0)
+    p = start_index + len(prefix)
+    if p >= len(source):
+        return None
+
+    if source[p : p + 3] in ('"""', "'''"):
+        quote_delim = source[p : p + 3]
+        p += 3
+        is_triple = True
+    elif source[p] in ('"', "'"):
+        quote_delim = source[p]
+        p += 1
+        is_triple = False
+    else:
+        return None
+
+    is_fstring = "f" in prefix.lower()
+
+    if not is_fstring:
+        while p < len(source):
+            if source[p] == "\\":
+                p += 2
+                continue
+            if is_triple:
+                if source[p : p + 3] == quote_delim:
+                    return source[start_index : p + 3], is_fstring, is_triple
+                p += 1
+            else:
+                if source[p] in ("\r", "\n"):
+                    break
+                if source[p] == quote_delim:
+                    return source[start_index : p + 1], is_fstring, is_triple
+                p += 1
+        return None
+
+    # Stateful f-string scanning (Python 3.12+ PEP 701 support)
+    brace_depth = 0
+    while p < len(source):
+        if brace_depth == 0:
+            if source[p : p + 2] in ("{{", "}}"):
+                p += 2
+                continue
+            if source[p] == "{":
+                brace_depth += 1
+                p += 1
+                continue
+            if is_triple:
+                if source[p : p + 3] == quote_delim:
+                    return source[start_index : p + 3], is_fstring, is_triple
+                if source[p] == "\\":
+                    p += 2
+                    continue
+                p += 1
+            else:
+                if source[p] in ("\r", "\n"):
+                    break
+                if source[p] == quote_delim:
+                    return source[start_index : p + 1], is_fstring, is_triple
+                if source[p] == "\\":
+                    p += 2
+                    continue
+                p += 1
+        else:
+            # Inside expression within f-string
+            inner_str = scan_string_literal(source, p)
+            if inner_str is not None:
+                p += len(inner_str[0])
+                continue
+            if source[p] == "{":
+                brace_depth += 1
+                p += 1
+            elif source[p] == "}":
+                brace_depth -= 1
+                p += 1
+            elif source[p] == "#":
+                while p < len(source) and source[p] not in ("\r", "\n"):
+                    p += 1
+            elif source[p] == "\\":
+                p += 2
+            else:
+                p += 1
+
+    return None
 
 # Number patterns
 RE_HEX_INT = re.compile(r"^0[xX][0-9a-fA-F_]+[jJ]?")
@@ -137,26 +224,25 @@ class ParsethonTokenizer:
                 span=span,
             )
 
-        # 4. Strings (Triple quoted first, then single quoted)
-        for pattern, sub_kind in (
-            (RE_TRIPLE_DOUBLE_STRING, TokenSubelement.LIT_STRING_TRIPLE),
-            (RE_TRIPLE_SINGLE_STRING, TokenSubelement.LIT_STRING_TRIPLE),
-            (RE_SINGLE_DOUBLE_STRING, TokenSubelement.LIT_STRING_DOUBLE),
-            (RE_SINGLE_SINGLE_STRING, TokenSubelement.LIT_STRING_SINGLE),
-        ):
-            m_str = pattern.match(current_slice)
-            if m_str:
-                text = m_str.group(0)
-                span = self._advance(text)
-                is_fstring = text.lstrip()[:2].lower().startswith("f")
-                category = TokenCategory.FSTRING if is_fstring else TokenCategory.STRING
-                return LexicalToken(
-                    category=category,
-                    subelement=sub_kind,
-                    value=text,
-                    canonical_value=text,
-                    span=span,
-                )
+        # 4. Strings and F-Strings (stateful scanner)
+        str_res = scan_string_literal(self.source, self.index)
+        if str_res is not None:
+            text, is_fstring, is_triple = str_res
+            span = self._advance(text)
+            category = TokenCategory.FSTRING if is_fstring else TokenCategory.STRING
+            if is_triple:
+                sub_kind = TokenSubelement.LIT_STRING_TRIPLE
+            elif '"' in text[:4]:
+                sub_kind = TokenSubelement.LIT_STRING_DOUBLE
+            else:
+                sub_kind = TokenSubelement.LIT_STRING_SINGLE
+            return LexicalToken(
+                category=category,
+                subelement=sub_kind,
+                value=text,
+                canonical_value=text,
+                span=span,
+            )
 
         # 5. Numbers
         for pattern, sub_kind in (
